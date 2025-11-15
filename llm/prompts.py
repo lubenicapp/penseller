@@ -10,18 +10,18 @@ client = Mistral(api_key=api_key)
 def generate_lambdapen_content(job_title, recent_posts):
 	"""
 	Generate personalized LambdaPen landing page content based on LinkedIn profile data.
-	
+
 	Args:
 		job_title (str): User's job title/occupation from LinkedIn
 		recent_posts (list): List of text content from their 2 most recent LinkedIn posts
-	
+
 	Returns:
 		dict: {"title": str, "subtitle": str, "description": str}
 	"""
-	
+
 	# Format posts for the prompt
 	posts_text = "\n".join([f"Post {i+1}: {post}" for i, post in enumerate(recent_posts)])
-	
+
 	prompt = f"""You are a copywriting expert for LambdaPen, a pencil extension tool.
 
 Product: LambdaPen extends short pencils, giving perfect grip and control. Sustainable, creative solution.
@@ -56,24 +56,24 @@ Return ONLY the JSON, nothing else."""
 			temperature=0.7,
 			max_tokens=500
 		)
-		
+
 		content = response.choices[0].message.content.strip()
-		
+
 		# Try to extract JSON if wrapped in code blocks
 		if "```json" in content:
 			content = content.split("```json")[1].split("```")[0].strip()
 		elif "```" in content:
 			content = content.split("```")[1].split("```")[0].strip()
-		
+
 		result = json.loads(content)
-		
+
 		if not all(key in result for key in ["title", "subtitle", "description"]):
 			raise ValueError("Missing required fields")
-		
+
 		print(f"✅ Generated LambdaPen content for: {job_title}")
-		
+
 		return result
-		
+
 	except Exception as e:
 		print(f"❌ Error generating content: {e}")
 		return {
@@ -83,9 +83,50 @@ Return ONLY the JSON, nothing else."""
 		}
 
 
-if __name__ == "__main__":
-	test_job_title = "Director @ STATION F / Scout @ Sequoia Capital"
-	test_post_text = "Innovation in sustainability matters"
-	
-	content = generate_lambdapen_content(test_job_title, test_post_text)
-	print(json.dumps(content, indent=2))
+def describe_image_from_url(image_url: str, prompt: str = None) -> str:
+
+
+	if prompt is None:
+		prompt = """
+		Describe the person in the image. Age gender, hair color, ethnicity, clothing. if there is none, provide a description of a random person
+		
+		Give enough details to sketch him for a portrait robot
+		
+		The answer must be in this format :
+		
+		"A man in his twenties, with blonde hair, European, with blue jacket..."
+		
+		"""
+
+	try:
+		# Use Mistral's Pixtral vision model
+		response = client.chat.complete(
+			model="pixtral-12b-2409",
+			messages=[
+				{
+					"role": "user",
+					"content": [
+						{
+							"type": "text",
+							"text": prompt
+						},
+						{
+							"type": "image_url",
+							"image_url": image_url
+						}
+					]
+				}
+			],
+			temperature=0.3,
+			max_tokens=1000
+		)
+
+		description = response.choices[0].message.content.strip()
+
+		print(f"✅ Successfully described image from: {image_url}")
+
+		return description
+
+	except Exception as e:
+		print(f"❌ Error describing image: {e}")
+		raise
