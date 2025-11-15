@@ -3,7 +3,11 @@
 "Sell me this pen"
 
 ## Setup
-run docker compose up
+rename sample.env => .env and provide api key
+
+run docker compose up.
+
+
 
 see 
 
