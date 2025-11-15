@@ -1,6 +1,7 @@
 from fastapi import FastAPI, HTTPException, Form, BackgroundTasks
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import HTMLResponse
+from fastapi.responses import HTMLResponse, FileResponse
+from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 import redis.asyncio as redis
 import json
@@ -13,6 +14,11 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 app = FastAPI(title="Landing Page API")
+
+# Mount static files for frontend (if directory exists)
+frontend_dist = "/app/frontend/dist"
+if os.path.exists(frontend_dist):
+    app.mount("/assets", StaticFiles(directory=f"{frontend_dist}/assets"), name="assets")
 
 # CORS middleware to allow frontend requests
 app.add_middleware(
@@ -150,6 +156,21 @@ async def root():
         </div>
         
         <script>
+            async function checkPageReady(pageId, maxAttempts = 60) {
+                for (let i = 0; i < maxAttempts; i++) {
+                    try {
+                        const response = await fetch('/api/content/' + pageId);
+                        if (response.ok) {
+                            return true;
+                        }
+                    } catch (error) {
+                        console.log('Checking...', i + 1);
+                    }
+                    await new Promise(resolve => setTimeout(resolve, 2000)); // Wait 2 seconds
+                }
+                return false;
+            }
+
             document.getElementById('generateForm').addEventListener('submit', async (e) => {
                 e.preventDefault();
                 
@@ -164,14 +185,24 @@ async def root():
                     });
                     
                     const data = await response.json();
-                    
                     const successMessage = document.getElementById('successMessage');
+                    
                     if (response.ok) {
-                        successMessage.textContent = '✓ ' + data.message;
+                        // Show loading state
+                        successMessage.innerHTML = '⏳ Generating your landing page...<br><small>This may take 1-2 minutes (AI generation in progress)</small>';
                         successMessage.style.display = 'block';
-                        setTimeout(() => {
-                            successMessage.style.display = 'none';
-                        }, 5000);
+                        
+                        // Extract page ID from URL
+                        const pageId = data.landing_page_url.split('id=')[1];
+                        
+                        // Wait for page to be ready
+                        const ready = await checkPageReady(pageId);
+                        
+                        if (ready) {
+                            successMessage.innerHTML = '✓ Landing page generated successfully!<br><br><a href="' + data.landing_page_url + '" target="_blank" style="color: #155724; text-decoration: underline; font-weight: bold;">Click here to view your landing page</a>';
+                        } else {
+                            successMessage.innerHTML = '⚠️ Generation is taking longer than expected.<br><br><a href="' + data.landing_page_url + '" target="_blank" style="color: #155724; text-decoration: underline; font-weight: bold;">Click here to try viewing your landing page</a>';
+                        }
                     } else {
                         successMessage.textContent = '✗ Error: ' + data.detail;
                         successMessage.style.backgroundColor = '#f8d7da';
@@ -202,7 +233,7 @@ async def generate_landing_page(
     """
     # Extract username from LinkedIn URL for the landing page URL
     username = linkedin_url.rstrip('/').split('/')[-1]
-    landing_page_url = f"http://localhost:3000?id={username}"
+    landing_page_url = f"http://localhost:8000/landing?id={username}"
     
     # Run workflow in background
     background_tasks.add_task(workflow, product_description, linkedin_url)
@@ -321,3 +352,12 @@ async def health_check():
         return {"status": "healthy", "redis": "connected"}
     except Exception as e:
         return {"status": "unhealthy", "error": str(e)}
+
+@app.get("/landing")
+async def serve_landing_page():
+    """Serve the React landing page"""
+    frontend_index = "/app/frontend/dist/index.html"
+    if os.path.exists(frontend_index):
+        return FileResponse(frontend_index)
+    else:
+        raise HTTPException(status_code=404, detail="Landing page not found")

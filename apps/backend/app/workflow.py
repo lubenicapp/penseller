@@ -92,7 +92,7 @@ def workflow(product_description, linkedin_url):
 	r.set(redis_key, json.dumps(redis_data))
 
 	# Log the URL to access the generated landing page
-	landing_page_url = f"http://localhost:3000?id={username}"
+	landing_page_url = f"http://localhost:8000/landing?id={username}"
 	print(f"\n✅ Landing page generated and saved to Redis!")
 	print(f"📍 Access it at: {landing_page_url}\n")
 

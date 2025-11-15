@@ -18,14 +18,15 @@ services:
 
   backend:
     build:
-      context: ./apps/backend
-      dockerfile: Dockerfile
+      context: ./apps
+      dockerfile: backend/Dockerfile
     container_name: backend
     ports:
       - "8000:8000"
     environment:
       - REDIS_HOST=redis
       - REDIS_PORT=6379
+      - VITE_API_URL=http://localhost:8000
     env_file:
       - .env
     volumes:
@@ -41,21 +42,6 @@ services:
       interval: 10s
       timeout: 5s
       retries: 5
-
-  landing_page:
-    build:
-      context: ./apps/landing_page
-      dockerfile: Dockerfile
-      args:
-        - VITE_API_URL=http://localhost:8000
-    container_name: landing_page
-    ports:
-      - "3000:80"
-    depends_on:
-      - backend
-    restart: unless-stopped
-    networks:
-      - pioneer_network
 
 networks:
   pioneer_network:
