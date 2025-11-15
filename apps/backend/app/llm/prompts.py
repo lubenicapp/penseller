@@ -70,20 +70,32 @@ def generate_image_prompt(product_description: str, lead_description: str) -> st
 	return prompt
 
 
-def generate_landing_page_content(product_description: str, job_title: str) -> dict:
+def generate_landing_page_content(product_description: str, job_title: str, last_posts_texts: list = None) -> dict:
 	"""
 	Generate complete landing page content tailored to the product and target audience.
 
 	Args:
 		product_description: Description of the product
 		job_title: Job title of the target lead
+		last_posts_texts: List of recent post texts from the LinkedIn profile
 
 	Returns:
 		Dictionary with landing page content structured for LandingPage model
 	"""
+	# Build context from posts if available
+	posts_context = ""
+	if last_posts_texts and len(last_posts_texts) > 0:
+		posts_context = "\n\nRecent LinkedIn Posts from the target lead:\n"
+		for i, post_text in enumerate(last_posts_texts[:3], 1):  # Use up to 3 most recent posts
+			if post_text:
+				posts_context += f"\nPost {i}: {post_text[:300]}...\n"  # Limit each post to 300 chars
+	
 	prompt = f"""You are a professional copywriter specializing in landing pages. Generate compelling landing page content for the following product, tailored to appeal to someone with the job title "{job_title}".
 
 Product Description: {product_description}
+{posts_context}
+
+Use the information from their LinkedIn posts to understand their interests, tone, and professional context. Make the landing page content resonate with their communication style and topics they care about.
 
 Generate a complete landing page with:
 

@@ -1,4 +1,4 @@
-from fastapi import FastAPI, HTTPException, Form, BackgroundTasks
+from fastapi import FastAPI, HTTPException, Form, BackgroundTasks, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import HTMLResponse, FileResponse
 from fastapi.staticfiles import StaticFiles
@@ -7,6 +7,8 @@ import redis.asyncio as redis
 import json
 import os
 import logging
+import asyncio
+from typing import Dict, Set
 from app.workflow import workflow
 
 # Configure logging
@@ -31,6 +33,10 @@ app.add_middleware(
 
 # Redis connection
 redis_client = None
+
+# WebSocket connections for log streaming
+active_connections: Dict[str, Set[WebSocket]] = {}
+log_queues: Dict[str, asyncio.Queue] = {}
 
 @app.on_event("startup")
 async def startup_event():
@@ -121,6 +127,20 @@ async def root():
                 margin-top: 20px;
                 display: none;
             }
+            .logs-container {
+                background-color: #f8f9fa;
+                border: 1px solid #dee2e6;
+                border-radius: 4px;
+                padding: 12px;
+                margin-top: 15px;
+                display: none;
+                font-family: 'Courier New', monospace;
+                font-size: 12px;
+            }
+            .log-line {
+                padding: 4px 0;
+                color: #495057;
+            }
         </style>
     </head>
     <body>
@@ -152,10 +172,50 @@ async def root():
                 <button type="submit">Generate Landing Page</button>
             </form>
             
+            <div id="logsContainer" class="logs-container"></div>
             <div id="successMessage" class="success"></div>
         </div>
         
         <script>
+            let ws = null;
+            
+            function connectWebSocket(pageId) {
+                const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+                const wsUrl = `${protocol}//${window.location.host}/ws/logs/${pageId}`;
+                
+                ws = new WebSocket(wsUrl);
+                const logsContainer = document.getElementById('logsContainer');
+                
+                ws.onopen = () => {
+                    console.log('WebSocket connected');
+                    logsContainer.style.display = 'block';
+                };
+                
+                ws.onmessage = (event) => {
+                    const data = JSON.parse(event.data);
+                    if (data.logs && data.logs.length > 0) {
+                        logsContainer.innerHTML = data.logs.map(log => 
+                            `<div class="log-line">${log}</div>`
+                        ).join('');
+                    }
+                };
+                
+                ws.onerror = (error) => {
+                    console.error('WebSocket error:', error);
+                };
+                
+                ws.onclose = () => {
+                    console.log('WebSocket disconnected');
+                };
+            }
+            
+            function disconnectWebSocket() {
+                if (ws) {
+                    ws.close();
+                    ws = null;
+                }
+            }
+
             async function checkPageReady(pageId, maxAttempts = 60) {
                 for (let i = 0; i < maxAttempts; i++) {
                     try {
@@ -188,15 +248,24 @@ async def root():
                     const successMessage = document.getElementById('successMessage');
                     
                     if (response.ok) {
+                        // Extract page ID from URL
+                        const pageId = data.landing_page_url.split('id=')[1];
+                        
+                        // Connect to WebSocket for logs
+                        connectWebSocket(pageId);
+                        
                         // Show loading state
                         successMessage.innerHTML = '⏳ Generating your landing page...<br><small>This may take 1-2 minutes (AI generation in progress)</small>';
                         successMessage.style.display = 'block';
                         
-                        // Extract page ID from URL
-                        const pageId = data.landing_page_url.split('id=')[1];
-                        
                         // Wait for page to be ready
                         const ready = await checkPageReady(pageId);
+                        
+                        // Disconnect WebSocket
+                        disconnectWebSocket();
+                        
+                        // Hide logs
+                        document.getElementById('logsContainer').style.display = 'none';
                         
                         if (ready) {
                             successMessage.innerHTML = '✓ Landing page generated successfully!<br><br><a href="' + data.landing_page_url + '" target="_blank" style="color: #155724; text-decoration: underline; font-weight: bold;">Click here to view your landing page</a>';
@@ -231,18 +300,27 @@ async def generate_landing_page(
     Generate a landing page based on product description and LinkedIn URL
     Runs the workflow in the background
     """
-    # Extract username from LinkedIn URL for the landing page URL
+    # Extract username from LinkedIn URL - each user has ONE page that gets overwritten
     username = linkedin_url.rstrip('/').split('/')[-1]
+    
+    # Delete old page data from Redis before starting generation
+    # This ensures the frontend polling won't find stale data
+    try:
+        await redis_client.delete(f"page:{username}")
+        logger.info(f"Deleted old page data for: {username}")
+    except Exception as e:
+        logger.warning(f"Could not delete old page data: {e}")
     
     # Use relative URL so it works regardless of deployment location
     landing_page_url = f"/landing?id={username}"
     
-    # Run workflow in background
-    background_tasks.add_task(workflow, product_description, linkedin_url)
+    # Run workflow in background with the username as page_id
+    background_tasks.add_task(workflow, product_description, linkedin_url, username)
     
     return {
         "message": "Landing page generation started!",
         "landing_page_url": landing_page_url,
+        "page_id": username,
         "status": "processing"
     }
 
@@ -354,6 +432,44 @@ async def health_check():
         return {"status": "healthy", "redis": "connected"}
     except Exception as e:
         return {"status": "unhealthy", "error": str(e)}
+
+@app.websocket("/ws/logs/{page_id}")
+async def websocket_logs(websocket: WebSocket, page_id: str):
+    """WebSocket endpoint for streaming generation logs"""
+    await websocket.accept()
+    
+    # Add this connection to active connections
+    if page_id not in active_connections:
+        active_connections[page_id] = set()
+    active_connections[page_id].add(websocket)
+    
+    try:
+        # Keep connection alive and send logs from Redis
+        while True:
+            # Check for logs in Redis
+            log_key = f"logs:{page_id}"
+            logs = await redis_client.lrange(log_key, -5, -1)  # Get last 5 logs
+            
+            if logs:
+                await websocket.send_json({"logs": logs})
+            
+            await asyncio.sleep(0.5)  # Check every 500ms
+            
+    except WebSocketDisconnect:
+        active_connections[page_id].discard(websocket)
+        if not active_connections[page_id]:
+            del active_connections[page_id]
+
+async def emit_log(page_id: str, message: str):
+    """Emit a log message to Redis for WebSocket streaming"""
+    try:
+        log_key = f"logs:{page_id}"
+        await redis_client.rpush(log_key, message)
+        await redis_client.expire(log_key, 300)  # Expire logs after 5 minutes
+        # Keep only last 5 logs
+        await redis_client.ltrim(log_key, -5, -1)
+    except Exception as e:
+        logger.error(f"Failed to emit log: {e}")
 
 @app.get("/landing")
 async def serve_landing_page():

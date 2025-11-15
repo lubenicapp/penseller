@@ -4,6 +4,7 @@ Workflow for generating landing pages from LinkedIn data and product description
 from app.fal.text_to_image import generate_image
 from app.llm.prompts import describe_person_from_url, generate_image_prompt, generate_landing_page_content
 from app.scraper.linkedin_scraper import get_basic_data, get_reactions, BasicData, Reactor
+from app.utils.logger import emit_log
 from typing import List
 import redis
 import json
@@ -35,12 +36,19 @@ def fetch_linkedin_data(linkedin_url: str) -> tuple[BasicData, List[Reactor]]:
     return basic_data, reactors
 
 
-def workflow(product_description, linkedin_url):
+def workflow(product_description, linkedin_url, page_id):
+	emit_log(page_id, "🔍 Fetching LinkedIn profile data...")
 	base_data, reactors = fetch_linkedin_data(linkedin_url)
+	
+	emit_log(page_id, "👤 Analyzing profile picture...")
 	lead_description = describe_person_from_url(base_data.profile_picture_url)
+	
+	emit_log(page_id, "🎨 Generating hero image...")
 	image_prompt = generate_image_prompt(lead_description, product_description)
 	image = generate_image(image_prompt)
-	lp = generate_landing_page_content(product_description, base_data.job_title)
+	
+	emit_log(page_id, "✍️ Creating landing page content...")
+	lp = generate_landing_page_content(product_description, base_data.job_title, base_data.last_posts_texts)
 
 	# Use reactors for testimonials instead of generated ones
 	testimonials = []
@@ -62,13 +70,11 @@ def workflow(product_description, linkedin_url):
 	lp["testimonials"] = testimonials
 	lp["hero_image_url"] = image
 
-	# Extract LinkedIn username from URL
-	# URL format: https://www.linkedin.com/in/username/
-	username = linkedin_url.rstrip('/').split('/')[-1]
-
+	emit_log(page_id, "💾 Saving landing page to database...")
+	
 	# Prepare data for Redis (matching API format)
 	redis_data = {
-		"id": username,
+		"id": page_id,
 		"productName": lp.get("product_name"),
 		"title": lp.get("hero_title"),
 		"subtitle": lp.get("hero_subtitle"),
@@ -88,18 +94,20 @@ def workflow(product_description, linkedin_url):
 	# Save to Redis (use 'redis' as host when running in Docker)
 	redis_host = os.getenv('REDIS_HOST', 'redis')
 	r = redis.Redis(host=redis_host, port=6379, decode_responses=True)
-	redis_key = f"page:{username}"
+	redis_key = f"page:{page_id}"
 	r.set(redis_key, json.dumps(redis_data))
 
 	# Log the URL to access the generated landing page
-	landing_page_url = f"http://localhost:8000/landing?id={username}"
+	emit_log(page_id, "✅ Landing page generated successfully!")
 	print(f"\n✅ Landing page generated and saved to Redis!")
-	print(f"📍 Access it at: {landing_page_url}\n")
+	print(f"📍 Redis key: {redis_key}")
+	print(f"📍 Page ID: {page_id}\n")
 
 	return lp
 
 if __name__ == "__main__":
 	product = ("keyboards made out of bamboo")
 	linkedin = "https://www.linkedin.com/in/roxannevarza/"
+	page_id = "roxannevarza"  # Example page_id
 
-	workflow(product, linkedin)
+	workflow(product, linkedin, page_id)

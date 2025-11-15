@@ -12,6 +12,7 @@ class BasicData(BaseModel):
 	job_title: str
 	last_posts_urls : List[str]
 	logo_url: str
+	last_posts_texts: List[str]
 
 class Reactor(BaseModel):
 	reaction_type: str
@@ -57,6 +58,9 @@ def get_basic_data(linkedin_url="https://www.linkedin.com/in/roxannevarza/", pos
 
 	# Extract post URLs from all fetched posts
 	post_urls = [post.get("url", "") for post in posts_data if post.get("url")]
+	
+	# Extract post texts from all fetched posts
+	post_texts = [post.get("text", "") for post in posts_data]
 
 	# Create and return BasicData object
 	basic_data = BasicData(
@@ -65,7 +69,8 @@ def get_basic_data(linkedin_url="https://www.linkedin.com/in/roxannevarza/", pos
 		profile_picture_url=author.get("picture", ""),
 		job_title=author.get("occupation", ""),
 		logo_url=author.get("logoUrl", ""),
-		last_posts_urls=post_urls
+		last_posts_urls=post_urls,
+		last_posts_texts=post_texts
 	)
 
 	return basic_data
@@ -88,9 +93,9 @@ def get_reactions(linkedin_post_url="https://www.linkedin.com/posts/roxannevarza
 	payload = {
 		"post_urls": [linkedin_post_url]
 	}
-	url = f"https://api.apify.com/v2/acts/apimaestro~linkedin-post-reactions/run-sync-get-dataset-items?token={token}"
+	# url = f"https://api.apify.com/v2/acts/apimaestro~linkedin-post-reactions/run-sync-get-dataset-items?token={token}"
 
-	response = requests.post(url, json=payload)
+	response = requests.post("https://api.apify.com/v2/acts/apimaestro~linkedin-post-reactions/run-sync-get-dataset-items?token=" + token, json=payload)
 	reactions_data = response.json()
 
 	# Parse reactions and create Reactor objects

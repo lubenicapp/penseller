@@ -145,12 +145,6 @@ const Hero = () => {
                 {content.description}
               </p>
             )}
-
-            {content?.id && (
-              <div className="text-sm text-muted-foreground">
-                Page ID: <span className="font-mono">{content.id}</span>
-              </div>
-            )}
             
             <div className="flex flex-col sm:flex-row gap-4 justify-center lg:justify-start">
               <Button size="lg" className="text-lg h-14 px-8 shadow-md hover:shadow-lg transition-all">
