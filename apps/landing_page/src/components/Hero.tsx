@@ -40,9 +40,8 @@ const Hero = () => {
         const urlParams = new URLSearchParams(window.location.search);
         const pageId = urlParams.get('id') || 'default';
         
-        // Fetch content from API
-        const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:8000';
-        const response = await fetch(`${apiUrl}/api/content/${pageId}`);
+        // Fetch content from API using relative URL (works on any domain)
+        const response = await fetch(`/api/content/${pageId}`);
         
         if (!response.ok) {
           throw new Error(`Failed to load content for ID: ${pageId}`);

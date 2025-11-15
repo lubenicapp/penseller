@@ -90,8 +90,8 @@ const Testimonials = () => {
           return;
         }
         
-        const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:8000';
-        const response = await fetch(`${apiUrl}/api/content/${pageId}`);
+        // Fetch content from API using relative URL (works on any domain)
+        const response = await fetch(`/api/content/${pageId}`);
         
         if (!response.ok) {
           setLoading(false);

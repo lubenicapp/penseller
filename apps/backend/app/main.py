@@ -233,7 +233,9 @@ async def generate_landing_page(
     """
     # Extract username from LinkedIn URL for the landing page URL
     username = linkedin_url.rstrip('/').split('/')[-1]
-    landing_page_url = f"http://localhost:8000/landing?id={username}"
+    
+    # Use relative URL so it works regardless of deployment location
+    landing_page_url = f"/landing?id={username}"
     
     # Run workflow in background
     background_tasks.add_task(workflow, product_description, linkedin_url)
