@@ -13,9 +13,13 @@ import companyLogo4 from "@/assets/company-logo-4.jpg";
 
 interface PageContent {
   id: string;
+  productName?: string;
   title: string;
   subtitle: string;
   description?: string;
+  ctaPrimary?: string;
+  ctaSecondary?: string;
+  heroImageUrl?: string;
   companyLogos?: {
     logo1?: string;
     logo2?: string;
@@ -151,11 +155,11 @@ const Hero = () => {
             
             <div className="flex flex-col sm:flex-row gap-4 justify-center lg:justify-start">
               <Button size="lg" className="text-lg h-14 px-8 shadow-md hover:shadow-lg transition-all">
-                Get Your LambdaPen
+                {content?.ctaPrimary || 'Get Your LambdaPen'}
                 <ArrowRight className="ml-2 h-5 w-5" />
               </Button>
               <Button size="lg" variant="outline" className="text-lg h-14 px-8">
-                Learn More
+                {content?.ctaSecondary || 'Learn More'}
               </Button>
             </div>
             
@@ -189,8 +193,8 @@ const Hero = () => {
           <div className="relative">
             <div className="relative rounded-2xl overflow-hidden shadow-2xl">
               <img 
-                src={heroImage} 
-                alt="LambdaPen pencil extension in use" 
+                src={content?.heroImageUrl || heroImage} 
+                alt="Product in use" 
                 className="w-full h-auto"
               />
             </div>

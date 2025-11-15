@@ -5,24 +5,24 @@ The frontend will load this data when accessing: http://localhost:3000?id=eco-sh
 
 import redis
 import json
-from main import LandingPage
+from schema import LandingPage
 
 
 def save_shampoo_landing_page():
     """Generate and save a fictional shampoo product landing page to Redis"""
-    
+
     # Create fictional shampoo landing page data
     shampoo_page = LandingPage(
         product_name="Shampoo",
         page_id="eco-shampoo",
-        
+
         # Hero Section
         hero_title="Transform Your Hair, Naturally",
         hero_subtitle="EcoShine Organic Shampoo uses 100% natural ingredients to give you salon-quality results while caring for the planet. Experience the difference of truly clean beauty.",
         hero_social_proof="Join over 50,000 happy customers worldwide",
         hero_cta_primary="Shop Now",
         hero_cta_secondary="Learn More",
-        
+
         # Testimonials Section
         testimonials_headline="Loved By Beauty Enthusiasts Everywhere",
         testimonials=[
@@ -69,7 +69,7 @@ def save_shampoo_landing_page():
                 "initials": "OW"
             }
         ],
-        
+
         # Features Section
         features_headline="Why Choose EcoShine?",
         features=[
@@ -95,7 +95,7 @@ def save_shampoo_landing_page():
             }
         ]
     )
-    
+
     # Convert to dict for Redis storage (matches API format)
     redis_data = {
         "id": shampoo_page.page_id,
@@ -103,6 +103,8 @@ def save_shampoo_landing_page():
         "title": shampoo_page.hero_title,
         "subtitle": shampoo_page.hero_subtitle,
         "description": shampoo_page.hero_social_proof,
+        "ctaPrimary": shampoo_page.hero_cta_primary,
+        "ctaSecondary": shampoo_page.hero_cta_secondary,
         "companyLogos": {
             "logo1": shampoo_page.company_logo_1,
             "logo2": shampoo_page.company_logo_2,
@@ -116,7 +118,7 @@ def save_shampoo_landing_page():
         "testimonialsHeadline": shampoo_page.testimonials_headline,
         "allTestimonials": shampoo_page.testimonials
     }
-    
+
     # Connect to Redis
     try:
         r = redis.Redis(host='localhost', port=6379, decode_responses=True)
@@ -126,11 +128,11 @@ def save_shampoo_landing_page():
         print("❌ Failed to connect to Redis. Make sure Redis is running.")
         print("   Start Redis with: docker-compose up -d redis")
         return
-    
+
     # Save to Redis with key format: page:{page_id}
     redis_key = f"page:{shampoo_page.page_id}"
     r.set(redis_key, json.dumps(redis_data))
-    
+
     print(f"\n✅ Successfully saved shampoo landing page to Redis!")
     print(f"   Redis key: {redis_key}")
     print(f"   Page ID: {shampoo_page.page_id}")

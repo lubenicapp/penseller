@@ -10,9 +10,11 @@ interface Testimonial {
   rating: number;
   initials: string;
   avatarUrl?: string;
+  profile_picture_url?: string;
 }
 
 interface PageContent {
+  allTestimonials?: Testimonial[];
   testimonial1?: {
     name?: string;
     role?: string;
@@ -96,50 +98,55 @@ const Testimonials = () => {
         
         const data: PageContent = await response.json();
         
-        // Update testimonials with custom data if provided
-        const updatedTestimonials = [...defaultTestimonials];
-        
-        // Update first testimonial
-        if (data.testimonial1) {
-          if (data.testimonial1.name) {
-            updatedTestimonials[0].name = data.testimonial1.name;
-            // Generate initials from name
-            const nameParts = data.testimonial1.name.split(' ');
-            updatedTestimonials[0].initials = nameParts
-              .map(part => part[0])
-              .join('')
-              .toUpperCase()
-              .slice(0, 2);
+        // Use allTestimonials if available (from workflow with reactors)
+        if (data.allTestimonials && data.allTestimonials.length > 0) {
+          setTestimonials(data.allTestimonials);
+        } else {
+          // Fallback to updating individual testimonials
+          const updatedTestimonials = [...defaultTestimonials];
+          
+          // Update first testimonial
+          if (data.testimonial1) {
+            if (data.testimonial1.name) {
+              updatedTestimonials[0].name = data.testimonial1.name;
+              // Generate initials from name
+              const nameParts = data.testimonial1.name.split(' ');
+              updatedTestimonials[0].initials = nameParts
+                .map(part => part[0])
+                .join('')
+                .toUpperCase()
+                .slice(0, 2);
+            }
+            if (data.testimonial1.role) {
+              updatedTestimonials[0].role = data.testimonial1.role;
+            }
+            if (data.testimonial1.avatarUrl) {
+              updatedTestimonials[0].avatarUrl = data.testimonial1.avatarUrl;
+            }
           }
-          if (data.testimonial1.role) {
-            updatedTestimonials[0].role = data.testimonial1.role;
+          
+          // Update second testimonial
+          if (data.testimonial2) {
+            if (data.testimonial2.name) {
+              updatedTestimonials[1].name = data.testimonial2.name;
+              // Generate initials from name
+              const nameParts = data.testimonial2.name.split(' ');
+              updatedTestimonials[1].initials = nameParts
+                .map(part => part[0])
+                .join('')
+                .toUpperCase()
+                .slice(0, 2);
+            }
+            if (data.testimonial2.role) {
+              updatedTestimonials[1].role = data.testimonial2.role;
+            }
+            if (data.testimonial2.avatarUrl) {
+              updatedTestimonials[1].avatarUrl = data.testimonial2.avatarUrl;
+            }
           }
-          if (data.testimonial1.avatarUrl) {
-            updatedTestimonials[0].avatarUrl = data.testimonial1.avatarUrl;
-          }
+          
+          setTestimonials(updatedTestimonials);
         }
-        
-        // Update second testimonial
-        if (data.testimonial2) {
-          if (data.testimonial2.name) {
-            updatedTestimonials[1].name = data.testimonial2.name;
-            // Generate initials from name
-            const nameParts = data.testimonial2.name.split(' ');
-            updatedTestimonials[1].initials = nameParts
-              .map(part => part[0])
-              .join('')
-              .toUpperCase()
-              .slice(0, 2);
-          }
-          if (data.testimonial2.role) {
-            updatedTestimonials[1].role = data.testimonial2.role;
-          }
-          if (data.testimonial2.avatarUrl) {
-            updatedTestimonials[1].avatarUrl = data.testimonial2.avatarUrl;
-          }
-        }
-        
-        setTestimonials(updatedTestimonials);
       } catch (err) {
         console.error('Error fetching testimonial data:', err);
       } finally {
@@ -184,9 +191,9 @@ const Testimonials = () => {
                 
                 <div className="flex items-center gap-3 pt-4 border-t">
                   <Avatar className="h-10 w-10 bg-primary/10">
-                    {testimonial.avatarUrl && (
+                    {(testimonial.profile_picture_url || testimonial.avatarUrl) && (
                       <AvatarImage 
-                        src={testimonial.avatarUrl} 
+                        src={testimonial.profile_picture_url || testimonial.avatarUrl} 
                         alt={testimonial.name}
                       />
                     )}
