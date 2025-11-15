@@ -15,6 +15,7 @@ interface Testimonial {
 
 interface PageContent {
   allTestimonials?: Testimonial[];
+  testimonialsHeadline?: string;
   testimonial1?: {
     name?: string;
     role?: string;
@@ -74,6 +75,7 @@ const defaultTestimonials: Testimonial[] = [
 
 const Testimonials = () => {
   const [testimonials, setTestimonials] = useState<Testimonial[]>(defaultTestimonials);
+  const [headline, setHeadline] = useState<string>("Testimonials");
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -97,6 +99,11 @@ const Testimonials = () => {
         }
         
         const data: PageContent = await response.json();
+        
+        // Update headline if provided
+        if (data.testimonialsHeadline) {
+          setHeadline(data.testimonialsHeadline);
+        }
         
         // Use allTestimonials if available (from workflow with reactors)
         if (data.allTestimonials && data.allTestimonials.length > 0) {
@@ -162,11 +169,8 @@ const Testimonials = () => {
       <div className="container mx-auto px-4 md:px-6">
         <div className="text-center max-w-3xl mx-auto mb-16">
           <h2 className="text-4xl md:text-5xl font-bold mb-4">
-            Loved by Creators Everywhere
+            {headline}
           </h2>
-          <p className="text-xl text-muted-foreground">
-            Don't just take our word for it. Here's what our customers have to say about LambdaPen.
-          </p>
         </div>
         
         <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6 max-w-7xl mx-auto">

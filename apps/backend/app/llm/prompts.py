@@ -10,7 +10,7 @@ client = Mistral(api_key=api_key)
 def describe_person_from_url(image_url: str, prompt: str = None) -> str:
 	if prompt is None:
 		prompt = """
-		Describe the person in the image. Age gender, hair color, ethnicity, clothing. if there is none, provide a description of a random person
+		Describe the person in the image. Age gender, hair color, ethnicity, clothing. and facial traits. if there is none, provide a description of a random person
 		
 		Give enough details to sketch him for a portrait robot
 		
@@ -57,27 +57,27 @@ def describe_person_from_url(image_url: str, prompt: str = None) -> str:
 def generate_image_prompt(product_description: str, lead_description: str) -> str:
 	"""
 	Generate a detailed image prompt for text-to-image generation.
-	
+
 	Args:
 		product_description: Description of the product
 		lead_description: Description of the person (from describe_image_from_url)
-		
+
 	Returns:
 		Detailed prompt for image generation
 	"""
 	prompt = f"{lead_description}, happy and satisfied while using a product like : {product_description}, professional product photography, high quality, natural lighting, lifestyle shot"
-	
+
 	return prompt
 
 
 def generate_landing_page_content(product_description: str, job_title: str) -> dict:
 	"""
 	Generate complete landing page content tailored to the product and target audience.
-	
+
 	Args:
 		product_description: Description of the product
 		job_title: Job title of the target lead
-		
+
 	Returns:
 		Dictionary with landing page content structured for LandingPage model
 	"""
